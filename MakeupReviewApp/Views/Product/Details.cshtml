@@ -1,0 +1,36 @@
+﻿@model Product
+<h2>@Model.Name</h2>
+<img src="@Model.ImageUrl" class="img-fluid" />
+<p>@Model.Description</p>
+
+@if (User.Identity.IsAuthenticated)
+{
+    <a href="@Url.Action("Create", "Review", new { productId = Model.Id })" class="btn btn-success">Write a Review</a>
+    <form asp-action="AddToWishlist" asp-controller="Wishlist" method="post" class="mt-2">
+        <input type="hidden" name="productId" value="@Model.Id" />
+        <button type="submit" class="btn btn-primary">Add to Wishlist</button>
+    </form>
+}
+else
+{
+    <p><a asp-controller="Account" asp-action="Login">Login</a> to leave a review or add to wishlist.</p>
+}
+
+<h3>Reviews</h3>
+@if (ViewBag.Reviews != null && ViewBag.Reviews.Count > 0)
+{
+    <p>Showing @ViewBag.Reviews.Count reviews:</p> <!-- DEBUG: Log Review Count -->
+    @foreach (var review in ViewBag.Reviews)
+    {
+        <div class="review-box">
+            <p><strong>@review.UserName</strong> - @review.Date.ToShortDateString()</p>
+            <p>Rating: @review.Rating ⭐</p>
+            <p>@review.Comment</p>
+            <hr />
+        </div>
+    }
+}
+else
+{
+    <p>No reviews yet. Be the first to review this product!</p>
+}

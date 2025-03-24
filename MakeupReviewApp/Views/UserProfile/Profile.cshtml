@@ -1,0 +1,57 @@
+﻿@model MakeupReviewApp.Models.ViewModels.UserProfile
+
+@{
+    ViewData["Title"] = "User Profile";
+}
+
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-body text-center">
+            <img src="@Model.ProfilePicture" class="rounded-circle mb-3" alt="Profile Picture" width="150">
+            <h2>@Model.User.FullName</h2>
+            <p>Email: @Model.User.Email</p>
+            <p>Joined: @Model.JoinDate.ToString("MMMM dd, yyyy")</p>
+        </div>
+    </div>
+
+    <h3 class="mt-5">Your Reviews</h3>
+    @if (Model.Reviews.Any())
+    {
+        <ul class="list-group">
+            @foreach (var review in Model.Reviews)
+            {
+                <li class="list-group-item">
+                    <strong>Product ID: @review.ProductId</strong>
+                    <p>Rating: @review.Rating/5</p>
+                    <p>@review.Comment</p>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No reviews yet.</p>
+    }
+
+    <h3 class="mt-5">Your Wishlist</h3>
+    @if (Model.Wishlist.Any())
+    {
+        <ul class="list-group">
+            @foreach (var product in Model.Wishlist)
+            {
+                <li class="list-group-item">
+                    <strong><a href="@Url.Action("Details", "Product", new { id = product.Id })">@product.Name</a></strong>
+                    <p>@product.Description</p>
+                    <form asp-action="RemoveFromWishlist" asp-controller="Wishlist" method="post">
+                        <input type="hidden" name="productId" value="@product.Id" />
+                        <button type="submit" class="btn btn-danger">Remove</button>
+                    </form>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No items in wishlist.</p>
+    }
+</div>
