@@ -26,8 +26,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Configure Identity
 builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders()
-    .AddDefaultUI();
+    .AddDefaultTokenProviders();
+
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
 
 // Configure authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

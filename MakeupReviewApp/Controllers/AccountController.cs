@@ -1,23 +1,34 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using MakeupReviewApp.Models.ViewModels;
 using MakeupReviewApp.Models;
-using MakeupReviewApp.Repositories;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace MakeupReviewApp.Controllers
 {
+
     public class AccountController : Controller
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly AppDbContext _context;
+        private readonly ILogger<AccountController> _logger;
 
-        public AccountController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager)
+        public AccountController(
+            UserManager<IdentityUser> userManager,
+            SignInManager<IdentityUser> signInManager,
+            AppDbContext context,
+             ILogger<AccountController> logger)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _context = context;
+            _logger = logger;
         }
 
         public IActionResult Login()
@@ -26,28 +37,26 @@ namespace MakeupReviewApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Login(User loginUser)
+        public async Task<IActionResult> Login(LoginViewModel model)
         {
-            if (loginUser == null || string.IsNullOrEmpty(loginUser.Email) || string.IsNullOrEmpty(loginUser.Password))
+            if (!ModelState.IsValid)
             {
-                ModelState.AddModelError("", "Email and Password are required.");
-                return View();
+                return View(model);
             }
 
-            var result = await _signInManager.PasswordSignInAsync(loginUser.Email, loginUser.Password, false, false);
+            var result = await _signInManager.PasswordSignInAsync(
+                model.Email,
+                model.Password,
+                isPersistent: false,
+                lockoutOnFailure: false);
+
             if (result.Succeeded)
             {
                 return RedirectToAction("Index", "Home");
             }
 
-            ModelState.AddModelError("", "Invalid email or password.");
-            return View();
-        }
-
-        public async Task<IActionResult> Logout()
-        {
-            await _signInManager.SignOutAsync();
-            return RedirectToAction("Login");
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+            return View(model);
         }
 
         public IActionResult Register()
@@ -56,29 +65,46 @@ namespace MakeupReviewApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Register(User newUser)
+        public async Task<IActionResult> Register(RegisterViewModel model)
         {
-            if (string.IsNullOrEmpty(newUser.Email) || string.IsNullOrEmpty(newUser.Password) || string.IsNullOrEmpty(newUser.FullName))
+            try
             {
-                ModelState.AddModelError("", "All fields are required.");
-                return View();
+                var user = new IdentityUser { UserName = model.Email, Email = model.Email };
+                var result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    // Optional: Manually check database insertion
+                    var checkUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+                    if (checkUser == null)
+                    {
+                        // Log if user is not found after supposedly successful creation
+                        _logger.LogWarning($"User not found in database after creation: {model.Email}");
+                    }
+
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+                    return RedirectToAction("Index", "Home");
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log any exceptions
+                _logger.LogError($"Registration error: {ex.Message}");
+                ModelState.AddModelError(string.Empty, "An error occurred during registration.");
             }
 
-            var user = new IdentityUser { UserName = newUser.Email, Email = newUser.Email };
-            var result = await _userManager.CreateAsync(user, newUser.Password);
+            return View(model);
+        }
 
-            if (result.Succeeded)
-            {
-                await _signInManager.SignInAsync(user, isPersistent: false);
-                return RedirectToAction("Index", "Home");
-            }
-
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError("", error.Description);
-            }
-
-            return View();
+        public async Task<IActionResult> Logout()
+        {
+            await _signInManager.SignOutAsync();
+            return RedirectToAction("Login");
         }
     }
 }
