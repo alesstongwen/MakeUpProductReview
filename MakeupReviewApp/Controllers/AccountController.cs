@@ -5,16 +5,19 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using MakeupReviewApp.Models;
 using MakeupReviewApp.Repositories;
+using Microsoft.AspNetCore.Identity;
 
 namespace MakeupReviewApp.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly MockUserRepository _userRepo;
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly SignInManager<IdentityUser> _signInManager;
 
-        public AccountController(MockUserRepository userRepo)
+        public AccountController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager)
         {
-            _userRepo = userRepo;
+            _userManager = userManager;
+            _signInManager = signInManager;
         }
 
         public IActionResult Login()
@@ -31,30 +34,19 @@ namespace MakeupReviewApp.Controllers
                 return View();
             }
 
-            var user = _userRepo.ValidateUser(loginUser.Email, loginUser.Password);
-            if (user == null)
+            var result = await _signInManager.PasswordSignInAsync(loginUser.Email, loginUser.Password, false, false);
+            if (result.Succeeded)
             {
-                ModelState.AddModelError("", "Invalid email or password.");
-                return View();
+                return RedirectToAction("Index", "Home");
             }
 
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user.FullName ?? "Unknown User"),
-                new Claim(ClaimTypes.Email, user.Email)
-            };
-
-            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var principal = new ClaimsPrincipal(identity);
-
-            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-
-            return RedirectToAction("Index", "Home");
+            ModelState.AddModelError("", "Invalid email or password.");
+            return View();
         }
 
         public async Task<IActionResult> Logout()
         {
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            await _signInManager.SignOutAsync();
             return RedirectToAction("Login");
         }
 
@@ -64,7 +56,7 @@ namespace MakeupReviewApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult Register(User newUser)
+        public async Task<IActionResult> Register(User newUser)
         {
             if (string.IsNullOrEmpty(newUser.Email) || string.IsNullOrEmpty(newUser.Password) || string.IsNullOrEmpty(newUser.FullName))
             {
@@ -72,17 +64,21 @@ namespace MakeupReviewApp.Controllers
                 return View();
             }
 
-            try
+            var user = new IdentityUser { UserName = newUser.Email, Email = newUser.Email };
+            var result = await _userManager.CreateAsync(user, newUser.Password);
+
+            if (result.Succeeded)
             {
-                _userRepo.AddUser(newUser);
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("", ex.Message);
-                return View();
+                await _signInManager.SignInAsync(user, isPersistent: false);
+                return RedirectToAction("Index", "Home");
             }
 
-            return RedirectToAction("Login");
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError("", error.Description);
+            }
+
+            return View();
         }
     }
 }

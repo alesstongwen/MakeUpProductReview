@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.EntityFrameworkCore;
+using MakeupReviewApp.Models;
 using MakeupReviewApp.Repositories;
 using MakeupReviewApp.Services;
-using MakeupReviewApp.Models;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +15,19 @@ builder.Services.AddSingleton<MockUserRepository>();
 // Register services
 builder.Services.AddScoped<WishlistService>();
 builder.Services.AddScoped<ReviewService>();
+
+// Configure database context
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseMySql(
+    builder.Configuration.GetConnectionString("DefaultConnection"),
+    ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
+));
+
+// Configure Identity
+builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders()
+    .AddDefaultUI();
 
 // Configure authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -35,15 +47,6 @@ builder.Services.AddSession();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-
-builder.Services.AddIdentity<IdentityUser, IdentityRole>()
-    .AddDefaultTokenProviders()
-    .AddDefaultUI()
-    .AddEntityFrameworkStores<AppDbContext>();
 
 var app = builder.Build();
 
@@ -87,11 +90,34 @@ async Task CreateRoles(IServiceProvider serviceProvider)
     }
 }
 
-// Call CreateRoles method
+// Method to seed users
+async Task SeedUsers(IServiceProvider serviceProvider)
+{
+    var userManager = serviceProvider.GetRequiredService<UserManager<IdentityUser>>();
+
+    var users = new List<User>
+    {
+        new User { FullName = "Alice Johnson", Email = "alice@example.com", Password = "password123" },
+        new User { FullName = "Brenda Smith", Email = "bob@example.com", Password = "securepass" },
+        new User { FullName = "Aless", Email = "alesstongwen@gmail.com", Password = "123456" }
+    };
+
+    foreach (var user in users)
+    {
+        if (await userManager.FindByEmailAsync(user.Email) == null)
+        {
+            var identityUser = new IdentityUser { UserName = user.Email, Email = user.Email };
+            await userManager.CreateAsync(identityUser, user.Password);
+        }
+    }
+}
+
+// Call CreateRoles and SeedUsers methods
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     await CreateRoles(services);
+    await SeedUsers(services);
 }
 
 app.Run();
