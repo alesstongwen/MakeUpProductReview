@@ -2,8 +2,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using System.Threading.Tasks;
 using MakeupReviewApp.Models.ViewModels;
 using MakeupReviewApp.Models;
 using Microsoft.EntityFrameworkCore;
@@ -13,20 +11,17 @@ namespace MakeupReviewApp.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
-        private readonly AppDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogger<AccountController> _logger;
 
         public AccountController(
-            UserManager<IdentityUser> userManager,
-            SignInManager<IdentityUser> signInManager,
-            AppDbContext context,
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
             ILogger<AccountController> logger)
         {
             _userManager = userManager;
             _signInManager = signInManager;
-            _context = context;
             _logger = logger;
         }
 
@@ -131,10 +126,12 @@ namespace MakeupReviewApp.Controllers
 
             try
             {
-                var user = new IdentityUser
+                var user = new ApplicationUser
                 {
                     UserName = model.Email,
-                    Email = model.Email
+                    Email = model.Email,
+                    FullName = model.FullName, // Optional: only if your RegisterViewModel includes this
+                    JoinDate = DateTime.Now
                 };
 
                 var result = await _userManager.CreateAsync(user, model.Password);

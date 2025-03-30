@@ -16,7 +16,7 @@ namespace MakeupReviewApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult AddToWishlist(int productId)
+        public async Task<IActionResult> AddToWishlist(int productId)
         {
             var userEmail = User.FindFirstValue(ClaimTypes.Email);
             if (string.IsNullOrEmpty(userEmail))
@@ -24,7 +24,7 @@ namespace MakeupReviewApp.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var result = _wishlistService.AddToWishlist(userEmail, productId);
+            var result = await _wishlistService.AddToWishlistAsync(userEmail, productId);
             if (!result)
             {
                 return NotFound("User profile or product not found.");
@@ -34,7 +34,7 @@ namespace MakeupReviewApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult RemoveFromWishlist(int productId)
+        public async Task<IActionResult> RemoveFromWishlist(int productId)
         {
             var userEmail = User.FindFirstValue(ClaimTypes.Email);
             if (string.IsNullOrEmpty(userEmail))
@@ -42,7 +42,7 @@ namespace MakeupReviewApp.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var result = _wishlistService.RemoveFromWishlist(userEmail, productId);
+            var result = await _wishlistService.RemoveFromWishlistAsync(userEmail, productId);
             if (!result)
             {
                 return NotFound("User profile not found.");

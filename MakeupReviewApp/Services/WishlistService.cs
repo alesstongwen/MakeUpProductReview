@@ -1,54 +1,55 @@
 using System.Linq;
-using MakeupReviewApp.Repositories;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using MakeupReviewApp.Models;
+using MakeupReviewApp.Repositories;
 
 namespace MakeupReviewApp.Services
 {
     public class WishlistService
     {
-        private readonly MockUserRepository _userRepo;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly MockProductRepository _productRepo;
 
-        public WishlistService(MockUserRepository userRepo, MockProductRepository productRepo)
+        public WishlistService(UserManager<ApplicationUser> userManager, MockProductRepository productRepo)
         {
-            _userRepo = userRepo;
+            _userManager = userManager;
             _productRepo = productRepo;
         }
 
-        public bool AddToWishlist(string userEmail, int productId)
+        public async Task<bool> AddToWishlistAsync(string userEmail, int productId)
         {
-            var userProfile = _userRepo.GetUserProfileByEmail(userEmail);
-            if (userProfile == null)
-            {
+            var user = await _userManager.FindByEmailAsync(userEmail);
+            if (user == null)
                 return false;
-            }
 
             var product = _productRepo.GetProductById(productId);
             if (product == null)
-            {
                 return false;
-            }
 
-            if (!userProfile.Wishlist.Any(p => p.Id == productId))
+            if (user.Wishlist == null)
+                user.Wishlist = new List<Product>();
+
+            if (!user.Wishlist.Any(p => p.Id == productId))
             {
-                userProfile.Wishlist.Add(product);
+                user.Wishlist.Add(product);
+                await _userManager.UpdateAsync(user); // Persist the change
             }
 
             return true;
         }
 
-        public bool RemoveFromWishlist(string userEmail, int productId)
+        public async Task<bool> RemoveFromWishlistAsync(string userEmail, int productId)
         {
-            var userProfile = _userRepo.GetUserProfileByEmail(userEmail);
-            if (userProfile == null)
-            {
+            var user = await _userManager.FindByEmailAsync(userEmail);
+            if (user == null || user.Wishlist == null)
                 return false;
-            }
 
-            var product = userProfile.Wishlist.FirstOrDefault(p => p.Id == productId);
+            var product = user.Wishlist.FirstOrDefault(p => p.Id == productId);
             if (product != null)
             {
-                userProfile.Wishlist.Remove(product);
+                user.Wishlist.Remove(product);
+                await _userManager.UpdateAsync(user); // Persist the change
             }
 
             return true;

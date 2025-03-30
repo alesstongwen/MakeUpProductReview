@@ -1,35 +1,50 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MakeupReviewApp.Repositories;
+using Microsoft.AspNetCore.Identity;
+using MakeupReviewApp.Models;
 using MakeupReviewApp.Models.ViewModels;
+using MakeupReviewApp.Repositories;
 
 namespace MakeupReviewApp.Controllers
 {
     [Authorize]
     public class UserProfileController : Controller
     {
-        private readonly MockUserRepository _userRepo;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly MockReviewRepository _reviewRepo;
+        private readonly MockProductRepository _productRepo;
 
-        public UserProfileController(MockUserRepository userRepo)
+        public UserProfileController(
+            UserManager<ApplicationUser> userManager,
+            MockReviewRepository reviewRepo,
+            MockProductRepository productRepo)
         {
-            _userRepo = userRepo;
+            _userManager = userManager;
+            _reviewRepo = reviewRepo;
+            _productRepo = productRepo;
         }
 
-        public IActionResult Profile()
+        public async Task<IActionResult> Profile()
         {
-            var userEmail = User.FindFirstValue(ClaimTypes.Email);
+            var user = await _userManager.GetUserAsync(User);
 
-            if (string.IsNullOrEmpty(userEmail))
+            if (user == null)
             {
                 return RedirectToAction("Login", "Account");
             }
 
-            var userProfile = _userRepo.GetUserProfileByEmail(userEmail);
-            if (userProfile == null)
+            // Manually build the UserProfile ViewModel
+            var reviews = _reviewRepo.GetAllReviews().Where(r => r.UserName == user.FullName).ToList();
+
+            var userProfile = new UserProfile
             {
-                return NotFound("User profile not found.");
-            }
+                User = user,
+                ProfilePicture = null, // You can replace this with an actual path if implemented
+                JoinDate = user.JoinDate,
+                Reviews = reviews,
+                Wishlist = new List<Product>() // Optional: If you store Wishlist in database, load it here
+            };
 
             return View(userProfile);
         }
