@@ -5,6 +5,8 @@
         <div class="col-md-6">
             <h2 class="text-center mb-4">Register</h2>
             <form asp-action="Register" method="post">
+                <partial name="_ValidationScriptsPartial" />
+                <div asp-validation-summary="All" class="text-danger"></div>
                 <div class="form-group">
                     <label asp-for="FullName">Full Name</label>
                     <input asp-for="FullName" class="form-control" />
@@ -25,3 +27,6 @@
         </div>
     </div>
 </div>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
