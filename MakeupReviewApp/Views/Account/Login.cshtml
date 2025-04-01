@@ -16,6 +16,9 @@
                     <span asp-validation-for="Password" class="text-danger"></span>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">Login</button>
+                <a asp-controller="Account" asp-action="ExternalLogin" asp-route-provider="Google">Login with
+                    Google</a>
+
             </form>
         </div>
     </div>
