@@ -1,17 +1,23 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using MakeupReviewApp.Models.ViewModels;
+using MakeupReviewApp.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace MakeupReviewApp.Controllers
 {
-    public class RoleController : Controller
+    [Authorize(Roles = "Admin")]
+    public class RolesController : Controller
     {
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly UserManager<IdentityUser> _userManager;
 
-        public RoleController(RoleManager<IdentityRole> roleManager, UserManager<IdentityUser> userManager)
+        public RolesController(RoleManager<IdentityRole> roleManager, UserManager<IdentityUser> userManager)
         {
             _roleManager = roleManager;
             _userManager = userManager;
@@ -19,76 +25,68 @@ namespace MakeupReviewApp.Controllers
 
         public IActionResult Index()
         {
-            var roles = _roleManager.Roles;
+            var roles = _roleManager.Roles.ToList();
             return View(roles);
         }
-
+        [HttpGet]
         public async Task<IActionResult> Edit(string id)
         {
             var role = await _roleManager.FindByIdAsync(id);
-            if (role == null)
-            {
-                return NotFound();
-            }
+            if (role == null) return NotFound();
             return View(role);
         }
 
         [HttpPost]
         public async Task<IActionResult> Edit(IdentityRole role)
         {
-            if (ModelState.IsValid)
+            var existingRole = await _roleManager.FindByIdAsync(role.Id);
+            if (existingRole == null) return NotFound();
+
+            existingRole.Name = role.Name;
+            var result = await _roleManager.UpdateAsync(existingRole);
+
+            if (result.Succeeded)
+                return RedirectToAction("Index");
+
+            foreach (var error in result.Errors)
             {
-                var result = await _roleManager.UpdateAsync(role);
-                if (result.Succeeded)
-                {
-                    return RedirectToAction("Index");
-                }
-                ModelState.AddModelError(string.Empty, "Failed to update role.");
+                ModelState.AddModelError("", error.Description);
             }
+
             return View(role);
         }
-
+        [HttpGet]
         public async Task<IActionResult> ManageUsers(string roleId)
         {
             var role = await _roleManager.FindByIdAsync(roleId);
-            if (role == null)
-            {
-                return NotFound();
-            }
+            if (role == null) return NotFound();
 
-            var model = new ManageUsersViewModel
-            {
-                RoleId = role.Id,
-                RoleName = role.Name,
-                Users = new List<UserRoleViewModel>()
-            };
+            var users = _userManager.Users.ToList();
+            var viewModel = new List<UserRoleViewModel>();
 
-            foreach (var user in _userManager.Users)
+            foreach (var user in users)
             {
-                var userRoleViewModel = new UserRoleViewModel
+                viewModel.Add(new UserRoleViewModel
                 {
                     UserId = user.Id,
-                    UserName = user.UserName,
                     IsSelected = await _userManager.IsInRoleAsync(user, role.Name)
-                };
-                model.Users.Add(userRoleViewModel);
+                });
             }
 
-            return View(model);
+            ViewBag.RoleId = roleId;
+            ViewBag.RoleName = role.Name;
+            return View(viewModel);
         }
-
         [HttpPost]
-        public async Task<IActionResult> ManageUsers(ManageUsersViewModel model)
+        public async Task<IActionResult> ManageUsers(List<UserRoleViewModel> model, string roleId)
         {
-            var role = await _roleManager.FindByIdAsync(model.RoleId);
-            if (role == null)
-            {
-                return NotFound();
-            }
+            var role = await _roleManager.FindByIdAsync(roleId);
+            if (role == null) return NotFound();
 
-            foreach (var user in model.Users)
+            foreach (var user in model)
             {
                 var appUser = await _userManager.FindByIdAsync(user.UserId);
+
                 if (user.IsSelected && !(await _userManager.IsInRoleAsync(appUser, role.Name)))
                 {
                     await _userManager.AddToRoleAsync(appUser, role.Name);
@@ -101,5 +99,6 @@ namespace MakeupReviewApp.Controllers
 
             return RedirectToAction("Index");
         }
+
     }
 }

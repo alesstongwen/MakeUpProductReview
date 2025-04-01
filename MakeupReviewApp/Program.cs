@@ -165,8 +165,25 @@ async Task SeedUsers(IServiceProvider serviceProvider)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    await CreateRoles(services);
-    await SeedUsers(services);
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+
+    string[] roleNames = { "Admin", "User" };
+
+    foreach (var roleName in roleNames)
+    {
+        if (!await roleManager.RoleExistsAsync(roleName))
+        {
+            await roleManager.CreateAsync(new IdentityRole(roleName));
+        }
+    }
+
+    // Assign "Admin" role to a user
+    var user = await userManager.FindByEmailAsync("alesstongwen@gmail.com");
+    if (user != null && !await userManager.IsInRoleAsync(user, "Admin")) ;
+
+
 }
+
 
 app.Run();

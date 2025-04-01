@@ -1,0 +1,35 @@
+@model List<MakeupReviewApp.Models.ViewModels.UserRoleViewModel>
+@{
+    ViewData["Title"] = "Manage Users in Role";
+    var roleName = ViewBag.RoleName as string;
+    var roleId = ViewBag.RoleId as string;
+}
+
+<div class="container mt-5">
+    <h2>Manage Users in Role: <strong>@roleName</strong></h2>
+    <form asp-action="ManageUsers" method="post">
+        <input type="hidden" name="roleId" value="@roleId" />
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Assigned to Role?</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.Count; i++)
+                {
+                    <tr>
+                        <td>@Model[i].UserId</td>
+                        <td>
+                            <input type="hidden" name="model[@i].UserId" value="@Model[i].UserId" />
+                            <input type="checkbox" name="model[@i].IsSelected" value="true" @(Model[i].IsSelected ?
+                                                                                                                        "checked" : "") />
+                    </td>
+                </tr>
+                                }
+            </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary">Update Role Assignments</button>
+    </form>
+</div>
