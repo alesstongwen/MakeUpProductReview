@@ -32,5 +32,11 @@ namespace MakeupReviewApp.Controllers
             }
             return View(review);
         }
+        [HttpGet]
+        public IActionResult LoadReviewForm(int productId)
+        {
+            var review = new Review { ProductId = productId };
+            return PartialView("_ReviewForm", review);
+        }
     }
 }

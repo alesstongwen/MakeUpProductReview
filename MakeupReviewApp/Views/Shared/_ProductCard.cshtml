@@ -1,0 +1,23 @@
+@model MakeupReviewApp.Models.Product
+
+<div class="col-md-4 mb-3">
+    <div class="card h-100">
+        <img src="@Model.ImageUrl" class="card-img-top" alt="@Model.Name">
+        <div class="card-body">
+            <h5 class="card-title">@Model.Name</h5>
+            <p class="card-text">@Model.Brand - $@Model.Price</p>
+            <a href="@Url.Action("Details", "Product", new { id = Model.Id })" class="btn btn-primary">View Details</a>
+
+            <div id="review-container-@Model.Id" class="mt-2">
+                @if (User.Identity.IsAuthenticated)
+                {
+                    <button class="btn btn-success" onclick="loadReviewForm(@Model.Id)">Write a Review</button>
+                }
+                else
+                {
+                    <a href="@Url.Action("Login", "Account")" class="btn btn-warning">Login to Review</a>
+                }
+            </div>
+        </div>
+    </div>
+</div>
