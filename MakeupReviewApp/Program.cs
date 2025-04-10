@@ -7,106 +7,75 @@ using MakeupReviewApp.Services;
 using MakeupReviewApp.Data;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
-
-
 
 var builder = WebApplication.CreateBuilder(args);
 
-// add db context with EF Core
+// 🔧 Ensure it listens on 0.0.0.0:8080 (for Render)
+builder.WebHost.UseUrls("http://0.0.0.0:8080");
+
+// ✅ Register MySQL using PlanetScale (NO SQL Server version here)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
     ));
 
-// Register repositories
+// 🔄 Add repositories/services
 builder.Services.AddSingleton<MockReviewRepository>();
 builder.Services.AddSingleton<MockProductRepository>();
-
-// Register services
 builder.Services.AddScoped<WishlistService>();
 builder.Services.AddScoped<ReviewService>();
 
-// Configure database context
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Configure Identity
-// Identity configuration
+// ✅ Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    // Password settings
     options.Password.RequireDigit = false;
     options.Password.RequiredLength = 6;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
     options.Password.RequireLowercase = false;
-
-    // Signin settings
     options.SignIn.RequireConfirmedAccount = false;
-    options.SignIn.RequireConfirmedEmail = false;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+
 builder.Services.AddTransient<IPasswordValidator<ApplicationUser>, CustomPasswordValidator>();
 
-
-builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
-builder.Logging.SetMinimumLevel(LogLevel.Trace);
-
-// Configure authentication
+// 🔒 Auth settings
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/Account/Login";
         options.LogoutPath = "/Account/Logout";
     })
-   .AddGoogle(options =>
-{
-    options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-
-    options.Scope.Clear();
-    options.Scope.Add("openid");
-    options.Scope.Add("profile");
-    options.Scope.Add("email");
-
-    options.ClaimActions.Clear();
-    options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "sub");
-    options.ClaimActions.MapJsonKey(ClaimTypes.Name, "name");
-    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
-});
-
-
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+        options.Scope.Clear();
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+    });
 
 builder.Services.AddAuthorization();
 builder.Services.AddSession();
-
-// Add services to the container.
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
-}
+// 🔧 Use Developer Exception Page in all environments (you can restrict it to Dev later)
+app.UseDeveloperExceptionPage();
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseSession();
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ✅ Basic MVC routing
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllerRoute(
@@ -114,54 +83,7 @@ app.UseEndpoints(endpoints =>
         pattern: "{controller=Home}/{action=Index}/{id?}");
 });
 
-// Method to create roles
-async Task CreateRoles(IServiceProvider serviceProvider)
-{
-    var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    string[] roleNames = { "Admin", "User" };
-    IdentityResult roleResult;
-
-    foreach (var roleName in roleNames)
-    {
-        var roleExist = await roleManager.RoleExistsAsync(roleName);
-        if (!roleExist)
-        {
-            roleResult = await roleManager.CreateAsync(new IdentityRole(roleName));
-        }
-    }
-}
-
-// Method to seed users
-async Task SeedUsers(IServiceProvider serviceProvider)
-{
-    var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
-    var users = new List<(string FullName, string Email, string Password)>
-    {
-        ("Alice Johnson", "alice@example.com", "password123"),
-        ("Brenda Smith", "bob@example.com", "securepass"),
-        ("Aless", "alesstongwen@gmail.com", "123456")
-    };
-
-    foreach (var (fullName, email, password) in users)
-    {
-        if (await userManager.FindByEmailAsync(email) == null)
-        {
-            var identityUser = new ApplicationUser
-            {
-                UserName = email,
-                Email = email,
-                FullName = fullName,
-                JoinDate = DateTime.Now
-            };
-
-            await userManager.CreateAsync(identityUser, password);
-        }
-    }
-}
-
-
-// Call CreateRoles and SeedUsers methods
+// ✅ Seed roles and users
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -178,12 +100,24 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // Assign "Admin" role to a user
     var user = await userManager.FindByEmailAsync("alesstongwen@gmail.com");
-    if (user != null && !await userManager.IsInRoleAsync(user, "Admin")) ;
+    if (user == null)
+    {
+        user = new ApplicationUser
+        {
+            UserName = "alesstongwen@gmail.com",
+            Email = "alesstongwen@gmail.com",
+            FullName = "Aless",
+            JoinDate = DateTime.UtcNow
+        };
 
+        await userManager.CreateAsync(user, "123456");
+    }
 
+    if (!await userManager.IsInRoleAsync(user, "Admin"))
+    {
+        await userManager.AddToRoleAsync(user, "Admin");
+    }
 }
-
 
 app.Run();
