@@ -84,40 +84,57 @@ app.UseEndpoints(endpoints =>
 });
 
 // ✅ Seed roles and users
-using (var scope = app.Services.CreateScope())
+try
 {
-    var services = scope.ServiceProvider;
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-
-    string[] roleNames = { "Admin", "User" };
-
-    foreach (var roleName in roleNames)
+    using (var scope = app.Services.CreateScope())
     {
-        if (!await roleManager.RoleExistsAsync(roleName))
+        var services = scope.ServiceProvider;
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+
+        string[] roleNames = { "Admin", "User" };
+
+        foreach (var roleName in roleNames)
         {
-            await roleManager.CreateAsync(new IdentityRole(roleName));
+            if (!await roleManager.RoleExistsAsync(roleName))
+            {
+                await roleManager.CreateAsync(new IdentityRole(roleName));
+            }
+        }
+
+        var user = await userManager.FindByEmailAsync("alesstongwen@gmail.com");
+        if (user == null)
+        {
+            user = new ApplicationUser
+            {
+                UserName = "alesstongwen@gmail.com",
+                Email = "alesstongwen@gmail.com",
+                FullName = "Aless",
+                JoinDate = DateTime.UtcNow
+            };
+
+            var result = await userManager.CreateAsync(user, "123456");
+            if (!result.Succeeded)
+            {
+                Console.WriteLine("❌ Failed to create user:");
+                foreach (var error in result.Errors)
+                {
+                    Console.WriteLine($" - {error.Description}");
+                }
+            }
+        }
+
+        if (!await userManager.IsInRoleAsync(user, "Admin"))
+        {
+            await userManager.AddToRoleAsync(user, "Admin");
         }
     }
-
-    var user = await userManager.FindByEmailAsync("alesstongwen@gmail.com");
-    if (user == null)
-    {
-        user = new ApplicationUser
-        {
-            UserName = "alesstongwen@gmail.com",
-            Email = "alesstongwen@gmail.com",
-            FullName = "Aless",
-            JoinDate = DateTime.UtcNow
-        };
-
-        await userManager.CreateAsync(user, "123456");
-    }
-
-    if (!await userManager.IsInRoleAsync(user, "Admin"))
-    {
-        await userManager.AddToRoleAsync(user, "Admin");
-    }
 }
+catch (Exception ex)
+{
+    Console.WriteLine("🔥 Error during role/user seeding:");
+    Console.WriteLine(ex.ToString());
+}
+
 
 app.Run();
